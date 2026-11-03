@@ -1,0 +1,147 @@
+{
+  "private": true,
+  "name": "mariadb-shell-workbench-desktop",
+  "productName": "MariaDB Shell Workbench",
+  "author": "MariaDB Plc.",
+  "version": "26.11.0",
+  "description": "MariaDB Shell Workbench as a desktop application: the Workbench Theia app with the Electron target.",
+  "license": "GPL-2.0-only",
+  "main": "scripts/electron-main.js",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "theia": {
+    "target": "electron",
+    "frontend": {
+      "config": {
+        "applicationName": "MariaDB Shell Workbench",
+        "preferences": {
+          "files.enableTrash": false,
+          "security.workspace.trust.enabled": false
+        },
+        "defaultTheme": {
+          "light": "Default Light Modern",
+          "dark": "Default Dark Modern"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@theia/core": "1.76.0",
+    "@theia/editor": "1.76.0",
+    "@theia/editor-preview": "1.76.0",
+    "@theia/electron": "1.76.0",
+    "@theia/file-search": "1.76.0",
+    "@theia/filesystem": "1.76.0",
+    "@theia/keymaps": "1.76.0",
+    "@theia/markers": "1.76.0",
+    "@theia/messages": "1.76.0",
+    "@theia/monaco": "1.76.0",
+    "@theia/navigator": "1.76.0",
+    "@theia/outline-view": "1.76.0",
+    "@theia/output": "1.76.0",
+    "@theia/plugin-ext": "1.76.0",
+    "@theia/plugin-ext-vscode": "1.76.0",
+    "@theia/preferences": "1.76.0",
+    "@theia/process": "1.76.0",
+    "@theia/scm": "1.76.0",
+    "@theia/search-in-workspace": "1.76.0",
+    "@theia/terminal": "1.76.0",
+    "@theia/userstorage": "1.76.0",
+    "@theia/variable-resolver": "1.76.0",
+    "@theia/workspace": "1.76.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "@theia/cli": "1.76.0",
+    "electron": "42.8.1",
+    "electron-builder": "26.0.12",
+    "patch-package": "8.0.1"
+  },
+  "scripts": {
+    "postinstall": "patch-package --patch-dir ../patches",
+    "build": "theia build --mode production",
+    "rebuild": "theia rebuild:electron",
+    "start": "electron .",
+    "package": "electron-builder",
+    "icons": "node scripts/render-icons.mjs"
+  },
+  "build": {
+    "appId": "com.mariadb.shell-workbench",
+    "productName": "MariaDB Shell Workbench",
+    "copyright": "Copyright (c) 2026, MariaDB Plc.",
+    "asar": false,
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "lib/**/*",
+      "src-gen/**/*",
+      "scripts/**/*",
+      "package.json",
+      "!**/*.{map,ts,md}",
+      "!**/{test,tests,__tests__}/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../plugins",
+        "to": "app/plugins",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "../THIRD-PARTY-NOTICES.txt",
+        "to": "THIRD-PARTY-NOTICES.txt"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSE",
+        "to": "LICENSE.electron.txt"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSES.chromium.html",
+        "to": "LICENSES.chromium.html"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null,
+      "icon": "resources/icon-mac.png"
+    },
+    "linux": {
+      "category": "Development",
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "icon": "resources/icon.png"
+  },
+  "allowScripts": {
+    "node-pty@1.2.0-beta.12": true,
+    "keytar@7.9.0": true,
+    "drivelist@12.0.2": true,
+    "@parcel/watcher@2.6.0": true,
+    "msgpackr-extract@3.0.4": true,
+    "esbuild@0.28.2": true,
+    "puppeteer": false,
+    "electron-winstaller@5.4.0": true,
+    "native-keymap@2.5.0": true,
+    "@theia/ffmpeg@1.76.0": true
+  }
+}

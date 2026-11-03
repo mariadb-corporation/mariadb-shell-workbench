@@ -1,0 +1,20 @@
+# nginx auth_request target: login check through oauth2-proxy, Linux account at first login,
+# per-user IDE on demand, idle IDEs stopped (workbench-spawner.py).
+[Unit]
+Description=MariaDB Shell Workbench spawner
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/lib/mariadb-shell-workbench/workbench-spawner.py
+# /run/mariadb-shell-workbench: 0751, so each IDE reaches its own directory but nobody lists the others;
+# kept when the spawner restarts, as the running IDEs' sockets live in it.
+RuntimeDirectory=mariadb-shell-workbench
+RuntimeDirectoryMode=0751
+RuntimeDirectoryPreserve=yes
+# An IDE is idle while no browser tab is connected; 90 minutes keep a lunch break with the
+# laptop closed (the WebSocket drops) from ending a long-running operation in it.
+Environment=WORKBENCH_IDLE_MINUTES=90
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

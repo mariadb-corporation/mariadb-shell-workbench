@@ -1,0 +1,53 @@
+# Keycloak login (realm "workbench" at https://@HOST@/sso) for the multi-user Workbench, as a
+# rootful podman quadlet (oauth2-proxy.service). Only answers nginx's login checks (through the
+# spawner) and runs the /oauth2/ endpoints; the IDEs are reached by nginx directly.
+# Installed by setup-workbench.sh, which fills in @HOST@.
+[Unit]
+Description=oauth2-proxy (MariaDB Shell Workbench login)
+After=network-online.target keycloak.service
+
+[Container]
+ContainerName=oauth2-proxy
+Image=quay.io/oauth2-proxy/oauth2-proxy:v7.15.5
+Network=host
+# The secrets are owned by the image's nonroot user (65532), mode 400.
+Volume=/etc/mariadb-shell-workbench/oauth2-proxy:/run/secrets/oauth2-proxy:ro,Z
+# SameSite=None: a cloud console may show the IDE in an iframe, where every request is
+# cross-site and a Lax cookie would never be sent.
+# Access is decided by the user name and the group workbench-users, never by an email address:
+# Keycloak cannot verify one (no mail server), and oauth2-proxy fails the callback with a 500 on an
+# unverified email in the token. So no "email" scope, and the user name stands in for the email.
+# A login lasts 15 h (--cookie-expire, and the realm's session lengths in setup-keycloak-realm.sh);
+# every hour (--cookie-refresh, shorter than the realm's idle timeout) oauth2-proxy checks the
+# session with Keycloak, so a disabled user is out within the hour.
+Exec=--http-address=127.0.0.1:4180 \
+     --reverse-proxy=true \
+     --trusted-proxy-ip=127.0.0.1 \
+     --provider=keycloak-oidc \
+     --oidc-issuer-url=https://@HOST@/sso/realms/workbench \
+     --client-id=mariadb-shell-workbench \
+     --client-secret-file=/run/secrets/oauth2-proxy/client-secret \
+     --code-challenge-method=S256 \
+     --redirect-url=https://@HOST@/oauth2/callback \
+     --allowed-group=workbench-users \
+     --scope="openid profile" \
+     --oidc-email-claim=preferred_username \
+     --email-domain=* \
+     --skip-provider-button=true \
+     --upstream=static://202 \
+     --set-xauthrequest=true \
+     --cookie-name=_workbench_oauth2 \
+     --cookie-secret-file=/run/secrets/oauth2-proxy/cookie-secret \
+     --cookie-domain=.@HOST@ \
+     --whitelist-domain=.@HOST@ \
+     --cookie-secure=true \
+     --cookie-samesite=none \
+     --cookie-csrf-per-request=true \
+     --cookie-refresh=1h \
+     --cookie-expire=15h
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

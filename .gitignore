@@ -1,0 +1,19 @@
+node_modules/
+lib/
+src-gen/
+gen-webpack.config.js
+gen-webpack.node.config.js
+plugins/
+*.log
+.DS_Store
+tools/firefox-control/firefox-profile/
+*.png
+esbuild.mjs
+gen-esbuild.*.mjs
+__pycache__/
+electron/dist/
+electron/.browser_modules/
+electron/resources/
+
+# Personal deployments and notes: a git repository of its own (private/README.md), never in this one.
+/private/

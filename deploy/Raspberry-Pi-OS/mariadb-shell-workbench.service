@@ -1,0 +1,26 @@
+# The MariaDB Shell Workbench (Theia) for one user on Raspberry Pi OS, on 127.0.0.1:3000 behind
+# oauth2-proxy and nginx. Installed by setup-workbench.sh as /etc/systemd/system/, which fills in
+# @USER@ and @HOME@.
+[Unit]
+Description=MariaDB Shell Workbench for @USER@ on 127.0.0.1:3000
+After=network-online.target
+
+[Service]
+User=@USER@
+WorkingDirectory=/opt/mariadb-shell-workbench
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# Extension webviews get their own origin, https://webview.<host> (one DNS name and certificate
+# instead of Theia's default wildcard {{uuid}}.webview.{{hostname}}).
+Environment=THEIA_WEBVIEW_EXTERNAL_ENDPOINT=webview.{{hostname}}
+# THEIA_HOSTS (the public host name): behind oauth2-proxy the WebSocket's Origin and Host differ,
+# and Theia's same-origin check would answer every backend WebSocket with 403.
+EnvironmentFile=/etc/mariadb-shell-workbench/workbench.env
+# MariaDB's dev plugin for MariaDB Shell Agent, if not installed yet; "-": the IDE starts even when
+# this fails (no network).
+ExecStartPre=-/opt/mariadb-shell-workbench/scripts/install-ai-plugins.sh
+ExecStart=/usr/local/bin/node lib/backend/main.js @HOME@/workspace --hostname=127.0.0.1 --port=3000 --plugins=local-dir:plugins
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

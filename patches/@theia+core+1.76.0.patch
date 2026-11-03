@@ -1,0 +1,83 @@
+diff --git a/node_modules/@theia/core/lib/browser/shell/application-shell.js b/node_modules/@theia/core/lib/browser/shell/application-shell.js
+index 552466e..2b92350 100644
+--- a/node_modules/@theia/core/lib/browser/shell/application-shell.js
++++ b/node_modules/@theia/core/lib/browser/shell/application-shell.js
+@@ -2084,13 +2084,20 @@ exports.ApplicationShell = ApplicationShell = ApplicationShell_1 = tslib_1.__dec
+             emptySize: 140,
+             expandThreshold: 140,
+             expandDuration: 0,
+-            initialSizeRatio: 0.191
++            // patched (mariadb-shell-workbench): the left side panel opens 350 px wide (initialSize, read by
++            // SidePanelHandler.getDefaultPanelSize), at most half the window.
++            initialSizeRatio: 0.2292,
++            initialSize: 350
+         }),
+         rightPanel: Object.freeze({
+             emptySize: 140,
+             expandThreshold: 140,
+             expandDuration: 0,
+-            initialSizeRatio: 0.191
++            // patched (mariadb-shell-workbench): the right side panel (MariaDB Shell Agent) opens 450 px wide
++            // (initialSize, read by SidePanelHandler.getDefaultPanelSize), at most half the window;
++            // the ratio stays for anything that reads it.
++            initialSizeRatio: 0.33,
++            initialSize: 450
+         })
+     });
+     function isOpenToSideMode(mode) {
+diff --git a/node_modules/@theia/core/lib/browser/shell/side-panel-handler.js b/node_modules/@theia/core/lib/browser/shell/side-panel-handler.js
+index 35b84d1..a0fb00c 100644
+--- a/node_modules/@theia/core/lib/browser/shell/side-panel-handler.js
++++ b/node_modules/@theia/core/lib/browser/shell/side-panel-handler.js
+@@ -489,6 +489,11 @@ let SidePanelHandler = class SidePanelHandler {
+     getDefaultPanelSize() {
+         const parent = this.container.parent;
+         if (parent && parent.isVisible) {
++            // patched (mariadb-shell-workbench): a fixed width in pixels where the options give one
++            // (initialSize), but never more than half the window.
++            if (this.options.initialSize) {
++                return Math.min(this.options.initialSize, parent.node.clientWidth / 2);
++            }
+             return parent.node.clientWidth * this.options.initialSizeRatio;
+         }
+     }
+diff --git a/node_modules/@theia/core/lib/node/backend-application.js b/node_modules/@theia/core/lib/node/backend-application.js
+index a6208a2..5d19c94 100644
+--- a/node_modules/@theia/core/lib/node/backend-application.js
++++ b/node_modules/@theia/core/lib/node/backend-application.js
+@@ -214,7 +214,15 @@ let BackendApplication = class BackendApplication {
+              * so we defer `process.exit` to let time for logging in the parent process */
+             setTimeout(process.exit, 0, 1);
+         });
+-        server.listen(port, hostname, () => {
++        // MariaDB Shell Workbench: THEIA_SOCKET listens on a Unix socket instead of a TCP port, so
++        // that only nginx (by the socket directory's permissions) reaches one user's IDE when
++        // several run on one server. A socket file left by a crash would make listen fail.
++        const socketPath = process.env.THEIA_SOCKET;
++        if (socketPath) {
++            await fs.remove(socketPath);
++        }
++        const listenArgs = socketPath ? [socketPath] : [port, hostname];
++        server.listen(...listenArgs, () => {
+             // address should be defined at this point
+             const address = server.address();
+             const url = typeof address === 'string' ? address : this.getHttpUrl(address, this.cliParams.ssl);
+diff --git a/node_modules/@theia/core/src/browser/style/index.css b/node_modules/@theia/core/src/browser/style/index.css
+index 1a0e299..55320f1 100644
+--- a/node_modules/@theia/core/src/browser/style/index.css
++++ b/node_modules/@theia/core/src/browser/style/index.css
+@@ -232,8 +232,12 @@ blockquote {
+ .theia-icon {
+     width: 32px;
+     height: 18px;
+-    margin: 5px;
+-    margin-left: 8px;
++    /* patched (mariadb-shell-workbench): margin for the MariaDB seal (was 5px, 8px on the left) */
++    margin: 7px 5px 3px 8px;
++    /* patched (mariadb-shell-workbench): the MariaDB seal (mariadb-shell-agent/mariadb/assets/seal-mono.svg) */
++    background-color: var(--theia-titleBar-activeForeground);
++    -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20316%20355%22%3E%3Cg%20transform%3D%22matrix(0.1%2C0%2C0%2C-0.1%2C-30.298846%2C379.950842)%22%3E%3Cpath%20d%3D%22M1680%2C3776C1591%2C3749%201536%2C3722%201455%2C3665C1377%2C3609%20959%2C3184%20851%2C3050C698%2C2860%20494%2C2528%20415%2C2342C279%2C2019%20266%2C1594%20381%2C1225C413%2C1121%20456%2C1030%20474%2C1030C494%2C1030%20510%2C1061%20510%2C1098C510%2C1205%20577%2C1468%20639%2C1605C681%2C1698%20696%2C1694%20758%2C1577C846%2C1408%20960%2C1269%201123%2C1133C1165%2C1098%201200%2C1062%201200%2C1054C1200%2C1027%201273%2C824%201312%2C743C1359%2C645%201445%2C507%201502%2C436C1563%2C361%201673%2C250%201686%2C250C1714%2C250%201717%2C276%201699%2C370C1639%2C673%201665%2C955%201785%2C1325C1876%2C1606%201884%2C1645%201884%2C1805C1884%2C1916%201879%2C1967%201861%2C2049C1841%2C2138%201838%2C2172%201843%2C2274C1853%2C2511%201944%2C2829%202068%2C3064L2115%2C3154L2206%2C3199C2446%2C3321%202566%2C3454%202578%2C3611C2582%2C3669%202580%2C3679%202559%2C3704C2525%2C3742%202482%2C3749%202301%2C3743C2163%2C3738%202133%2C3740%202059%2C3758C1904%2C3796%201881%2C3800%201818%2C3799C1783%2C3799%201722%2C3789%201680%2C3776Z%22%2F%3E%3Cpath%20d%3D%22M2974%2C3290C2959%2C3284%202946%2C3262%202931%2C3218C2901%2C3129%202860%2C3061%202790%2C2987C2757%2C2951%202730%2C2914%202730%2C2903C2730%2C2889%202754%2C2868%202813%2C2832C2899%2C2780%203000%2C2693%203000%2C2672C3000%2C2655%202975%2C2657%202932%2C2679C2842%2C2724%202686%2C2760%202575%2C2760C2502%2C2760%202403%2C2745%202333%2C2723C2255%2C2700%202262%2C2681%202363%2C2640C2533%2C2572%202637%2C2504%202739%2C2394C2816%2C2313%202879%2C2187%202905%2C2065C2927%2C1960%202939%2C1947%203005%2C1956C3065%2C1964%203168%2C2001%203230%2C2037C3305%2C2081%203407%2C2186%203424%2C2238C3462%2C2347%203432%2C2590%203359%2C2785C3298%2C2945%203229%2C3055%203097%2C3203C3018%2C3291%203004%2C3301%202974%2C3290Z%22%2F%3E%3Cpath%20d%3D%22M3370%2C2037C3155%2C1864%202924%2C1802%202590%2C1829C2329%2C1850%202233%2C1870%202101%2C1931C2055%2C1953%202011%2C1970%202004%2C1970C1994%2C1970%201993%2C1941%201997%2C1836C2001%2C1748%201999%2C1680%201991%2C1638C1979%2C1578%201972%2C1550%201910%2C1325C1831%2C1040%201838%2C905%201933%2C865C1988%2C842%202143%2C837%202265%2C853C2543%2C891%202780%2C999%202989%2C1183C3219%2C1386%203389%2C1686%203446%2C1988C3470%2C2115%203468%2C2116%203370%2C2037Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center / contain no-repeat;
++    mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20316%20355%22%3E%3Cg%20transform%3D%22matrix(0.1%2C0%2C0%2C-0.1%2C-30.298846%2C379.950842)%22%3E%3Cpath%20d%3D%22M1680%2C3776C1591%2C3749%201536%2C3722%201455%2C3665C1377%2C3609%20959%2C3184%20851%2C3050C698%2C2860%20494%2C2528%20415%2C2342C279%2C2019%20266%2C1594%20381%2C1225C413%2C1121%20456%2C1030%20474%2C1030C494%2C1030%20510%2C1061%20510%2C1098C510%2C1205%20577%2C1468%20639%2C1605C681%2C1698%20696%2C1694%20758%2C1577C846%2C1408%20960%2C1269%201123%2C1133C1165%2C1098%201200%2C1062%201200%2C1054C1200%2C1027%201273%2C824%201312%2C743C1359%2C645%201445%2C507%201502%2C436C1563%2C361%201673%2C250%201686%2C250C1714%2C250%201717%2C276%201699%2C370C1639%2C673%201665%2C955%201785%2C1325C1876%2C1606%201884%2C1645%201884%2C1805C1884%2C1916%201879%2C1967%201861%2C2049C1841%2C2138%201838%2C2172%201843%2C2274C1853%2C2511%201944%2C2829%202068%2C3064L2115%2C3154L2206%2C3199C2446%2C3321%202566%2C3454%202578%2C3611C2582%2C3669%202580%2C3679%202559%2C3704C2525%2C3742%202482%2C3749%202301%2C3743C2163%2C3738%202133%2C3740%202059%2C3758C1904%2C3796%201881%2C3800%201818%2C3799C1783%2C3799%201722%2C3789%201680%2C3776Z%22%2F%3E%3Cpath%20d%3D%22M2974%2C3290C2959%2C3284%202946%2C3262%202931%2C3218C2901%2C3129%202860%2C3061%202790%2C2987C2757%2C2951%202730%2C2914%202730%2C2903C2730%2C2889%202754%2C2868%202813%2C2832C2899%2C2780%203000%2C2693%203000%2C2672C3000%2C2655%202975%2C2657%202932%2C2679C2842%2C2724%202686%2C2760%202575%2C2760C2502%2C2760%202403%2C2745%202333%2C2723C2255%2C2700%202262%2C2681%202363%2C2640C2533%2C2572%202637%2C2504%202739%2C2394C2816%2C2313%202879%2C2187%202905%2C2065C2927%2C1960%202939%2C1947%203005%2C1956C3065%2C1964%203168%2C2001%203230%2C2037C3305%2C2081%203407%2C2186%203424%2C2238C3462%2C2347%203432%2C2590%203359%2C2785C3298%2C2945%203229%2C3055%203097%2C3203C3018%2C3291%203004%2C3301%202974%2C3290Z%22%2F%3E%3Cpath%20d%3D%22M3370%2C2037C3155%2C1864%202924%2C1802%202590%2C1829C2329%2C1850%202233%2C1870%202101%2C1931C2055%2C1953%202011%2C1970%202004%2C1970C1994%2C1970%201993%2C1941%201997%2C1836C2001%2C1748%201999%2C1680%201991%2C1638C1979%2C1578%201972%2C1550%201910%2C1325C1831%2C1040%201838%2C905%201933%2C865C1988%2C842%202143%2C837%202265%2C853C2543%2C891%202780%2C999%202989%2C1183C3219%2C1386%203389%2C1686%203446%2C1988C3470%2C2115%203468%2C2116%203370%2C2037Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") center / contain no-repeat;
+ }
+ 
+ .theia-mod-disabled,

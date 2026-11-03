@@ -1,0 +1,39 @@
+# Keycloak for the multi-user Workbench, as a rootful podman quadlet (keycloak.service).
+# Served under https://<host>/sso by nginx; stores its data in the local MariaDB server.
+# Installed by setup-keycloak.sh into /etc/containers/systemd/.
+[Unit]
+Description=Keycloak (MariaDB Shell Workbench login)
+After=network-online.target mariadb.service
+Requires=mariadb.service
+
+[Container]
+ContainerName=keycloak
+Image=quay.io/keycloak/keycloak:26.8.0
+# Runs as the image's user, UID 1000 on the host (no user namespace): an account with that ID could
+# signal Keycloak, so Workbench accounts get IDs from 10000 on (workbench-spawner.py).
+# Host network: reaches MariaDB on 127.0.0.1:3306 and listens on 127.0.0.1:8080 only.
+Network=host
+# KC_HOSTNAME, KC_DB_PASSWORD, KC_BOOTSTRAP_ADMIN_*: written by setup-keycloak.sh (mode 600).
+EnvironmentFile=/etc/mariadb-shell-workbench/keycloak.env
+Environment=KC_DB=mariadb
+Environment=KC_DB_URL=jdbc:mariadb://127.0.0.1:3306/keycloak
+Environment=KC_DB_USERNAME=keycloak
+Environment=KC_HTTP_ENABLED=true
+Environment=KC_HTTP_HOST=127.0.0.1
+Environment=KC_HTTP_PORT=8080
+Environment=KC_HTTP_RELATIVE_PATH=/sso
+Environment=KC_PROXY_HEADERS=xforwarded
+Environment=KC_HEALTH_ENABLED=true
+# One server, no cluster: without this, JGroups listens on all interfaces (7800, 57800).
+Environment=KC_CACHE=local
+# A small server: cap the heap (Keycloak's default takes a share of the RAM).
+Environment=JAVA_OPTS_KC_HEAP=-Xms64m -Xmx512m
+Volume=/etc/mariadb-shell-workbench/keycloak-themes:/opt/keycloak/themes:ro,Z
+Exec=start
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

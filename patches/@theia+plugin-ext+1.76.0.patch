@@ -1,0 +1,81 @@
+diff --git a/node_modules/@theia/plugin-ext/lib/main/browser/notebooks/notebook-documents-main.js b/node_modules/@theia/plugin-ext/lib/main/browser/notebooks/notebook-documents-main.js
+index 38f8502..2aa4efa 100644
+--- a/node_modules/@theia/plugin-ext/lib/main/browser/notebooks/notebook-documents-main.js
++++ b/node_modules/@theia/plugin-ext/lib/main/browser/notebooks/notebook-documents-main.js
+@@ -141,7 +141,10 @@ class NotebookDocumentsMainImpl {
+                 });
+             }
+             if (rawEvents.length > 0) {
+-                this.proxy.$acceptModelChanged(uriComponents, { versionId: 1, rawEvents }, true);
++                // MariaDB Shell Workbench: the plugin host takes a document metadata change from this
++                // argument, not from the event; without it a notebook created from data (with
++                // workspace.openNotebookDocument(type, data)) lost its metadata there.
++                this.proxy.$acceptModelChanged(uriComponents, { versionId: 1, rawEvents }, true, options.content.metadata ? ref.metadata : undefined);
+             }
+         }
+         return uriComponents;
+diff --git a/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js b/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
+index 3163101..15fa1ba 100644
+--- a/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
++++ b/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
+@@ -49,6 +49,23 @@ const themables_1 = require("@theia/monaco-editor-core/esm/vs/base/common/themab
+ exports.PLUGIN_VIEW_FACTORY_ID = 'plugin-view';
+ exports.PLUGIN_VIEW_CONTAINER_FACTORY_ID = 'plugin-view-container';
+ exports.PLUGIN_VIEW_DATA_FACTORY_ID = 'plugin-view-data';
++// patched (mariadb-shell-workbench): view containers of MariaDB Shell (left) and MariaDB Shell Agent (right),
++// shown when there is no saved layout.
++const MARIADB_CONTAINERS = ['workbench.view.extension.mariadb-view', 'workbench.view.extension.mariadb-shell-agent-sidebar'];
++// Their ranks: first in their side bar, MariaDB Shell above Explorer (rank 100) and MariaDB Shell Agent above
++// Outline (rank 500); MariaDB Shell's Deployments second, below MariaDB Shell. Rank 0 would be ignored
++// (falsy); every other plugin container goes last.
++const MARIADB_CONTAINER_RANKS = {
++    'workbench.view.extension.mariadb-view': 1,
++    'workbench.view.extension.mariadb-shell-agent-sidebar': 1,
++    'workbench.view.extension.mariadb-deployments': 2
++};
++// Views that start expanded (false) or collapsed (true) without a saved layout. Theia expands only the
++// first view it adds to a container, whatever the order of the extension's manifest.
++const MARIADB_VIEWS_COLLAPSED = {
++    'mariadb.deployments': false,
++    'mariadb.deploymentVendors': true
++};
+ let PluginViewRegistry = class PluginViewRegistry {
+     constructor() {
+         this.onDidExpandViewEmitter = new event_1.Emitter();
+@@ -593,7 +610,9 @@ let PluginViewRegistry = class PluginViewRegistry {
+                 return scmWidget?.resourceWidget;
+             }
+             default:
+-                return this.widgetManager.getWidget(exports.PLUGIN_VIEW_DATA_FACTORY_ID, { id: viewId });
++                // patched (mariadb-shell-workbench): a tree view created with canSelectMany, showCollapseAll or
++                // drag and drop is keyed by all its options, so look it up by id, not by { id } alone.
++                return this.widgetManager.getWidgets(exports.PLUGIN_VIEW_DATA_FACTORY_ID).find(w => w.id === viewId);
+         }
+     }
+     getViewWelcomes(viewId) {
+@@ -690,8 +709,14 @@ let PluginViewRegistry = class PluginViewRegistry {
+         if (!containerWidget.isAttached) {
+             await this.shell.addWidget(containerWidget, {
+                 area: browser_1.ApplicationShell.isSideArea(location) ? location : 'left',
+-                rank: Number.MAX_SAFE_INTEGER
++                // patched (mariadb-shell-workbench): see MARIADB_CONTAINER_RANKS.
++                rank: MARIADB_CONTAINER_RANKS[containerId] ?? Number.MAX_SAFE_INTEGER
+             });
++            // patched (mariadb-shell-workbench): without a saved layout the MariaDB containers are shown, with their
++            // side bars expanded. A restored layout attaches them before this, so a user's choice is kept.
++            if (MARIADB_CONTAINERS.includes(containerId)) {
++                await this.shell.revealWidget(containerWidget.id);
++            }
+         }
+         return containerWidget;
+     }
+@@ -714,7 +739,8 @@ let PluginViewRegistry = class PluginViewRegistry {
+             const widget = await this.widgetManager.getOrCreateWidget(exports.PLUGIN_VIEW_FACTORY_ID, identifier);
+             if (containerWidget.getTrackableWidgets().indexOf(widget) === -1) {
+                 containerWidget.addWidget(widget, {
+-                    initiallyCollapsed: !!containerWidget.getParts().length,
++                    // patched (mariadb-shell-workbench): see MARIADB_VIEWS_COLLAPSED.
++                    initiallyCollapsed: MARIADB_VIEWS_COLLAPSED[viewId] ?? !!containerWidget.getParts().length,
+                     initiallyHidden: !this.isViewVisible(viewId)
+                 });
+             }

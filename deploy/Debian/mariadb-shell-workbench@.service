@@ -1,0 +1,37 @@
+# One MariaDB Shell Workbench (Theia) per Linux user, started on demand by workbench-spawner.
+# Listens on /run/mariadb-shell-workbench/<user>/theia.sock (patched Theia, THEIA_SOCKET): the directory
+# is <user>:www-data 2750, so only that user and nginx reach it, never another user's IDE.
+[Unit]
+Description=MariaDB Shell Workbench for %i
+After=network-online.target
+
+[Service]
+User=%i
+WorkingDirectory=/opt/mariadb-shell-workbench
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=THEIA_SOCKET=/run/mariadb-shell-workbench/%i/theia.sock
+Environment=THEIA_WEBVIEW_EXTERNAL_ENDPOINT=webview.{{hostname}}
+# THEIA_HOSTS (the public host name, for Theia's WebSocket origin check).
+EnvironmentFile=/etc/mariadb-shell-workbench/workbench.env
+# Socket srwxrwx--- <user>:www-data (group from the setgid directory).
+UMask=0007
+ExecStartPre=+/usr/bin/install -d -o %i -g www-data -m 2750 /run/mariadb-shell-workbench/%i
+ExecStartPre=-/opt/mariadb-shell-workbench/scripts/install-ai-plugins.sh
+ExecStart=/usr/local/bin/node lib/backend/main.js /home/%i/workspace --plugins=local-dir:plugins
+# Before the stop ends the IDE's cgroup: move the user's sandboxes and REST daemons out of it, they
+# may serve web apps (also run when the IDE exits on its own; the spawner does it every minute too).
+ExecStop=+/usr/bin/python3 /usr/local/lib/mariadb-shell-workbench/workbench-spawner.py adopt %i
+# Theia leaves its socket file behind when it stops (also after a crash, which this runs after too).
+ExecStopPost=+/bin/rm -f /run/mariadb-shell-workbench/%i/theia.sock
+Restart=on-failure
+RestartSec=5
+
+# Each IDE has a terminal: keep users apart and off root.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=tmpfs
+BindPaths=/home/%i
+MemoryHigh=1536M
+MemoryMax=2G
+CPUQuota=150%
+TasksMax=512

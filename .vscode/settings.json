@@ -1,0 +1,11 @@
+{
+    // Build output and unpacked extensions: keep their package.json files out of the NPM Scripts view.
+    // electron/'s own scripts are run by the root's build:standalone and start:standalone. The patterns
+    // match the folder that holds a package.json, not the file.
+    "npm.exclude": [
+        "**/electron",
+        "**/electron/dist/**",
+        "**/electron/.browser_modules/**",
+        "**/plugins/**"
+    ]
+}
