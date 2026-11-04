@@ -54,8 +54,9 @@ it exists; a fact that names a particular host, address, account or machine goes
   moves MariaDB Shell Agent's container from `activitybar` to `secondarySidebar` in the unpacked
   manifest (Theia maps that key to the right side; local VS Code keeps the manifest); ranks and reveal
   are in the plugin-ext patch (`MARIADB_CONTAINER_RANKS`: MariaDB Shell and MariaDB Shell Agent 1,
-  MariaDB Shell's Deployments container `mariadb-deployments` 2, below MariaDB Shell; every other
-  plugin container last; `MARIADB_CONTAINERS`: the two revealed; `MARIADB_VIEWS_COLLAPSED`:
+  MariaDB Shell's Deployments container `mariadb-deployments` 2 and its Schema Management container
+  `mariadb-msm` 3, below MariaDB Shell; every other plugin container last, so a new MariaDB container
+  needs a rank here; `MARIADB_CONTAINERS`: the two revealed; `MARIADB_VIEWS_COLLAPSED`:
   Deployments expanded, Deployment Vendors collapsed, since Theia expands only the first view it adds
   to a container).
 - **Third-party iframe constraints** (the IDE runs cross-site inside a console):
@@ -207,6 +208,8 @@ it exists; a fact that names a particular host, address, account or machine goes
   dependency upgrade needs `npm install-scripts approve <pkg>` again; `puppeteer` and `@theia/ffmpeg`
   are denied: test tooling and Electron-only; `electron/package.json` allows `@theia/ffmpeg`).
 - `patches/@theia+plugin-ext+*.patch` → the tree-view welcome fix, MariaDB container ranks and reveal.
+  Edited by hand: a line added or removed in one hunk shifts the `+` start line of every later hunk
+  of that file; test with patch-package against a pristine `npm pack` of the Theia package.
 - `patches/@theia+core+*.patch` → side panel default widths, menu bar seal, `THEIA_SOCKET`.
 - `deploy/Debian/` → the multi-user server (Debian 13 / Ubuntu 24.04; `FRAME_ANCESTORS` for consoles,
   kept in `/etc/mariadb-shell-workbench/frame-ancestors`): setup scripts in order (`setup-base.sh`,
@@ -304,6 +307,8 @@ it exists; a fact that names a particular host, address, account or machine goes
   log SIGSEGV or exit 1 while stopping, the new one starts normally. A deploy replaces the server's
   `plugins/mariadb.*` with the local ones, so both MariaDB extensions must be unpacked locally first
   (on a fresh checkout a deploy would wipe them). Scripts-only changes need no build (`--no-build`).
+  `deploy/Debian/deploy-workbench.sh` needs GNU rsync on the development machine (`--chown`):
+  macOS ships openrsync, which rejects that option (`brew install rsync`).
 - **A local Theia must be opened as `http://localhost:3000`:** on `127.0.0.1` the webview host becomes
   `<uuid>.webview.127.0.0.1`, the browser blocks the frames (`about:blank#blocked`) and webview views
   such as MariaDB Shell Agent stay empty with no error in the backend.
