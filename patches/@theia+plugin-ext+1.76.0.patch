@@ -18,7 +18,7 @@ diff --git a/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-re
 index 3163101..15fa1ba 100644
 --- a/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
 +++ b/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
-@@ -49,6 +49,23 @@ const themables_1 = require("@theia/monaco-editor-core/esm/vs/base/common/themab
+@@ -49,6 +49,24 @@ const themables_1 = require("@theia/monaco-editor-core/esm/vs/base/common/themab
  exports.PLUGIN_VIEW_FACTORY_ID = 'plugin-view';
  exports.PLUGIN_VIEW_CONTAINER_FACTORY_ID = 'plugin-view-container';
  exports.PLUGIN_VIEW_DATA_FACTORY_ID = 'plugin-view-data';
@@ -26,12 +26,13 @@ index 3163101..15fa1ba 100644
 +// shown when there is no saved layout.
 +const MARIADB_CONTAINERS = ['workbench.view.extension.mariadb-view', 'workbench.view.extension.mariadb-shell-agent-sidebar'];
 +// Their ranks: first in their side bar, MariaDB Shell above Explorer (rank 100) and MariaDB Shell Agent above
-+// Outline (rank 500); MariaDB Shell's Deployments second, below MariaDB Shell. Rank 0 would be ignored
-+// (falsy); every other plugin container goes last.
++// Outline (rank 500); MariaDB Shell's Deployments second and its Schema Management third, below MariaDB
++// Shell. Rank 0 would be ignored (falsy); every other plugin container goes last.
 +const MARIADB_CONTAINER_RANKS = {
 +    'workbench.view.extension.mariadb-view': 1,
 +    'workbench.view.extension.mariadb-shell-agent-sidebar': 1,
-+    'workbench.view.extension.mariadb-deployments': 2
++    'workbench.view.extension.mariadb-deployments': 2,
++    'workbench.view.extension.mariadb-msm': 3
 +};
 +// Views that start expanded (false) or collapsed (true) without a saved layout. Theia expands only the
 +// first view it adds to a container, whatever the order of the extension's manifest.
@@ -42,7 +43,7 @@ index 3163101..15fa1ba 100644
  let PluginViewRegistry = class PluginViewRegistry {
      constructor() {
          this.onDidExpandViewEmitter = new event_1.Emitter();
-@@ -593,7 +610,9 @@ let PluginViewRegistry = class PluginViewRegistry {
+@@ -593,7 +611,9 @@ let PluginViewRegistry = class PluginViewRegistry {
                  return scmWidget?.resourceWidget;
              }
              default:
@@ -53,7 +54,7 @@ index 3163101..15fa1ba 100644
          }
      }
      getViewWelcomes(viewId) {
-@@ -690,8 +709,14 @@ let PluginViewRegistry = class PluginViewRegistry {
+@@ -690,8 +710,14 @@ let PluginViewRegistry = class PluginViewRegistry {
          if (!containerWidget.isAttached) {
              await this.shell.addWidget(containerWidget, {
                  area: browser_1.ApplicationShell.isSideArea(location) ? location : 'left',
@@ -69,7 +70,7 @@ index 3163101..15fa1ba 100644
          }
          return containerWidget;
      }
-@@ -714,7 +739,8 @@ let PluginViewRegistry = class PluginViewRegistry {
+@@ -714,7 +740,8 @@ let PluginViewRegistry = class PluginViewRegistry {
              const widget = await this.widgetManager.getOrCreateWidget(exports.PLUGIN_VIEW_FACTORY_ID, identifier);
              if (containerWidget.getTrackableWidgets().indexOf(widget) === -1) {
                  containerWidget.addWidget(widget, {
