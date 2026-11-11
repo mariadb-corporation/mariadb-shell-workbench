@@ -176,6 +176,11 @@ run; they are hidden from that view (`.vscode/settings.json`).
   document metadata change from `$acceptModelChanged`'s fourth argument, which that call left out,
   so the extension saw `{}`. Symptom without it: a MariaDB Notebook opened from a connection tile
   on the Overview page has no connection. Drop it once fixed upstream.
+  It also lets a tree view get its data widget when the view was hidden as its extension registered
+  the tree data provider: `prepareView` puts a welcome placeholder into the view at load, and
+  `initView` waits for `onDidExpandView` to replace it, but `tryFireOnDidExpandView` fired only for an
+  empty view. The patch fires it as long as the view holds only placeholders (tree widgets without
+  `model.proxy`). Symptom without it: such a view shows its welcome content, or nothing, for good.
 
 - `@theia+core+1.76.0.patch`: fixed side panel widths instead of Theia's default (`initialSizeRatio`
   0.191 of the window width): left 350 px, right 450 px for MariaDB Shell Agent's chat (`initialSize`, a

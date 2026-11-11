@@ -15,7 +15,7 @@ index 38f8502..2aa4efa 100644
          }
          return uriComponents;
 diff --git a/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js b/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
-index 3163101..15fa1ba 100644
+index 3163101..ea92166 100644
 --- a/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
 +++ b/node_modules/@theia/plugin-ext/lib/main/browser/view/plugin-view-registry.js
 @@ -49,6 +49,24 @@ const themables_1 = require("@theia/monaco-editor-core/esm/vs/base/common/themab
@@ -80,3 +80,16 @@ index 3163101..15fa1ba 100644
                      initiallyHidden: !this.isViewVisible(viewId)
                  });
              }
+@@ -729,7 +756,11 @@ let PluginViewRegistry = class PluginViewRegistry {
+             // if a view is explicitly hidden then suppress updating visibility based on `when` closure
+             part.onDidChangeVisibility(() => widget.suppressUpdateViewVisibility = part.isHidden);
+             const tryFireOnDidExpandView = () => {
+-                if (widget.widgets.length === 0) {
++                // patched (mariadb-shell-workbench): a view holding only the welcome placeholder that prepareView put
++                // there at load, before its extension registered a tree data provider (a tree widget without
++                // `model.proxy`), still waits for its data widget. Theia stopped listening here, so a view that was
++                // hidden when the provider came never got it: initView waits for onDidExpandView to replace it.
++                if (widget.widgets.every(w => w.model !== undefined && w.model.proxy === undefined)) {
+                     if (!part.collapsed && part.isVisible) {
+                         const viewId = this.toViewId(widget.options);
+                         this.onDidExpandViewEmitter.fire(viewId);
