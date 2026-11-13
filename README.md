@@ -162,7 +162,7 @@ run; they are hidden from that view (`.vscode/settings.json`).
   The same patch places the MariaDB view containers (`MARIADB_CONTAINERS` in
   `plugin-view-registry.js`): MariaDB Shell first in the activity bar (above Explorer) and MariaDB
   Shell Agent first in the secondary side bar (above Outline); MariaDB Shell's two other containers,
-  Deployments and Schema Management (`mariadb-msm`), follow MariaDB Shell in that order
+  Schema Management (`mariadb-msm`) and Deployments, follow MariaDB Shell in that order
   (`MARIADB_CONTAINER_RANKS`). Without a saved layout MariaDB Shell and MariaDB Shell Agent are revealed, so
   both side bars start expanded. Theia ids are `workbench.view.extension.<container id>`, and a rank
   of 0 is ignored (falsy). `scripts/add-mariadb-shell-agent-extension.sh` moves the MariaDB Shell Agent container
