@@ -202,6 +202,20 @@ build runs on (electron-builder); the build copies the extensions from `plugins/
   at build time. `postinstall` applies `../patches`.
 - `electron/scripts/electron-main.js` is the app's entry: it sets `THEIA_DEFAULT_PLUGINS` to the
   bundled extensions and adds `~/.mariadb-shell-workbench/plugins` for extensions added by hand.
+- MariaDB Shell (with its plugins) and the MariaDB REST daemon are bundled, so the app needs no
+  separate install: `build:standalone` runs `scripts/fetch-bundled-tools.mjs`, which takes the release
+  archives for the build's platform (tags pinned there; `MARIADB_SHELL_TAG`, `MARIADB_RESTD_TAG`
+  override them), checks them against the releases' `SHA256SUMS`, caches them in `.cache/releases/`
+  and unpacks them into `electron/bundle/` (resources/app/bundle/ in the app, about 430 MB). The
+  packaged app puts their `bin/` folders first on the `PATH`, where the extension looks for the shell
+  and the shell for `mariadb-restd`. From the checkout (`start:standalone`, `npm start`) the `PATH` is
+  left alone, so development builds on it are used; `MARIADB_SHELL_WORKBENCH_BUNDLED_TOOLS=0` does the
+  same for a packaged app. The bundled shell sets the app's minimum OS: macOS 26 on Apple silicon,
+  macOS 15 on Intel, glibc 2.34 on Linux. The REST daemon has no Windows arm64 build.
+- `MARIADB_EXTENSIONS_FROM=releases npm run build:standalone` takes the two MariaDB extensions from
+  their GitHub releases instead of `../vscode-extension` and `../mariadb-shell-agent`
+  (`scripts/fetch-extensions.mjs`; `MARIADB_EXTENSION_TAG`, `MARIADB_SHELL_AGENT_TAG`), for builds
+  without those checkouts, such as CI. `GITHUB_TOKEN` is sent with the downloads when set.
 - Differences from the browser app: no `application.confirmExit: always` (a desktop window would ask
   at every quit), and `@theia/ffmpeg`'s install script is allowed (the Electron target needs it).
   `scripts/install-ai-plugins.sh` does not run; MariaDB Shell Agent installs plugins on its own.

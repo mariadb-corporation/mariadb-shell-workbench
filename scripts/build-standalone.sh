@@ -8,10 +8,17 @@
 # modules rebuilt for Electron), the patches from patches/, and the extensions from plugins/, so run
 # download:plugins, plugin:mariadb and plugin:mariadb-shell-agent first. Its version is the root
 # package.json's.
+#
+# MARIADB_EXTENSIONS_FROM=releases takes the two MariaDB extensions from their GitHub releases
+# instead (scripts/fetch-extensions.mjs, for CI). MariaDB Shell and the REST daemon for this platform
+# are always bundled from their releases (scripts/fetch-bundled-tools.mjs); the tags of all four are
+# pinned in those scripts and can be overridden by environment variables.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -d plugins/vscode.git ] || npm run download:plugins
+[ "${MARIADB_EXTENSIONS_FROM:-}" = releases ] && node scripts/fetch-extensions.mjs
+node scripts/fetch-bundled-tools.mjs
 for ext in mariadb.mariadb-shell mariadb.mariadb-shell-agent; do
   [ -d "plugins/$ext" ] || echo "warning: plugins/$ext is missing; the app is built without it" >&2
 done

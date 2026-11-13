@@ -23,13 +23,22 @@ Electron and Chromium (desktop app)
    licenses of Chromium and the other components Electron includes are in
    LICENSES.chromium.html.
 
+MariaDB Shell and MariaDB REST Daemon (desktop app)
+
+   The desktop app bundles a release of MariaDB Shell and of the MariaDB REST
+   Daemon for its platform, in resources/app/bundle/mariadb-shell/ and
+   resources/app/bundle/mariadb-restd/. Each carries its own licensing
+   information, including the third-party components it contains:
+   bundle/mariadb-shell/share/mariadb-shell/LICENSE and
+   bundle/mariadb-restd/docs/LICENSE.
+
 Bundled VS Code extensions
 
    Each extension is in plugins/ (resources/app/plugins/ in the desktop app)
    with its own license files:
 
    - MariaDB Shell (mariadb.mariadb-shell 26.11.0): plugins/mariadb.mariadb-shell/extension/LICENSE.txt
-   - MariaDB Shell Agent (mariadb.mariadb-shell-agent 26.11.0): plugins/mariadb.mariadb-shell-agent/extension/LICENSE.txt, plugins/mariadb.mariadb-shell-agent/extension/NOTICES.txt
+   - MariaDB Shell Agent (mariadb.mariadb-shell-agent 26.11.1): plugins/mariadb.mariadb-shell-agent/extension/LICENSE.txt, plugins/mariadb.mariadb-shell-agent/extension/NOTICES.txt
    - Builtin Notebook Output Renderers (built-in) (vscode.builtin-notebook-renderers 1.95.3): plugins/vscode.builtin-notebook-renderers/extension/LICENSE-vscode.txt
    - Configuration Editing (built-in) (vscode.configuration-editing 1.95.3): plugins/vscode.configuration-editing/extension/LICENSE-vscode.txt
    - Git (built-in) (vscode.git 1.95.3): plugins/vscode.git/extension/LICENSE-vscode.txt
