@@ -26,13 +26,13 @@ index 3163101..ea92166 100644
 +// shown when there is no saved layout.
 +const MARIADB_CONTAINERS = ['workbench.view.extension.mariadb-view', 'workbench.view.extension.mariadb-shell-agent-sidebar'];
 +// Their ranks: first in their side bar, MariaDB Shell above Explorer (rank 100) and MariaDB Shell Agent above
-+// Outline (rank 500); MariaDB Shell's Deployments second and its Schema Management third, below MariaDB
++// Outline (rank 500); MariaDB Shell's Schema Management second and its Deployments third, below MariaDB
 +// Shell. Rank 0 would be ignored (falsy); every other plugin container goes last.
 +const MARIADB_CONTAINER_RANKS = {
 +    'workbench.view.extension.mariadb-view': 1,
 +    'workbench.view.extension.mariadb-shell-agent-sidebar': 1,
-+    'workbench.view.extension.mariadb-deployments': 2,
-+    'workbench.view.extension.mariadb-msm': 3
++    'workbench.view.extension.mariadb-deployments': 3,
++    'workbench.view.extension.mariadb-msm': 2
 +};
 +// Views that start expanded (false) or collapsed (true) without a saved layout. Theia expands only the
 +// first view it adds to a container, whatever the order of the extension's manifest.

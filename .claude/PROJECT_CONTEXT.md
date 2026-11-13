@@ -54,8 +54,8 @@ it exists; a fact that names a particular host, address, account or machine goes
   moves MariaDB Shell Agent's container from `activitybar` to `secondarySidebar` in the unpacked
   manifest (Theia maps that key to the right side; local VS Code keeps the manifest); ranks and reveal
   are in the plugin-ext patch (`MARIADB_CONTAINER_RANKS`: MariaDB Shell and MariaDB Shell Agent 1,
-  MariaDB Shell's Deployments container `mariadb-deployments` 2 and its Schema Management container
-  `mariadb-msm` 3, below MariaDB Shell; every other plugin container last, so a new MariaDB container
+  MariaDB Shell's Schema Management container `mariadb-msm` 2 and its Deployments container
+  `mariadb-deployments` 3, below MariaDB Shell; every other plugin container last, so a new MariaDB container
   needs a rank here; `MARIADB_CONTAINERS`: the two revealed; `MARIADB_VIEWS_COLLAPSED`:
   Deployments expanded, Deployment Vendors collapsed, since Theia expands only the first view it adds
   to a container).
