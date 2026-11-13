@@ -130,6 +130,15 @@ Electron and Chromium (desktop app)
    licenses of Chromium and the other components Electron includes are in
    LICENSES.chromium.html.
 
+MariaDB Shell and MariaDB REST Daemon (desktop app)
+
+   The desktop app bundles a release of MariaDB Shell and of the MariaDB REST
+   Daemon for its platform, in resources/app/bundle/mariadb-shell/ and
+   resources/app/bundle/mariadb-restd/. Each carries its own licensing
+   information, including the third-party components it contains:
+   bundle/mariadb-shell/share/mariadb-shell/LICENSE and
+   bundle/mariadb-restd/docs/LICENSE.
+
 Bundled VS Code extensions
 
    Each extension is in plugins/ (resources/app/plugins/ in the desktop app)

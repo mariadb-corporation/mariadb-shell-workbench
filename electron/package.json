@@ -93,6 +93,14 @@
         ]
       },
       {
+        "from": "bundle",
+        "to": "app/bundle",
+        "filter": [
+          "**/*",
+          "!**/.bundle-source"
+        ]
+      },
+      {
         "from": "../LICENSE",
         "to": "LICENSE.txt"
       },
