@@ -1,0 +1,93 @@
+name: Workbench-Release
+
+# Builds the desktop app (scripts/build-standalone.sh) for the six platforms on every push to
+# release/candidate, the release trigger, as MariaDB Shell does. Each platform's packages are
+# uploaded as an artifact of the run; publish-release.yml turns a successful run into a GitHub
+# release.
+#
+# A runner has no sibling checkouts, so the two MariaDB extensions come from their GitHub releases
+# (MARIADB_EXTENSIONS_FROM=releases); MariaDB Shell and the REST daemon always do. Their tags are
+# pinned in scripts/fetch-extensions.mjs and scripts/fetch-bundled-tools.mjs.
+
+on:
+  push:
+    branches: [ "release/candidate" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os-runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos, arch: arm64, os-runner: macos-latest }
+          - { os: macos, arch: x64, os-runner: macos-15-intel }
+          # ubuntu-22.04 (glibc 2.35) rather than the newest: the app's native modules then run on
+          # the same distributions as the bundled shell (glibc 2.34 and newer).
+          - { os: linux, arch: x64, os-runner: ubuntu-22.04 }
+          - { os: linux, arch: arm64, os-runner: ubuntu-22.04-arm }
+          - { os: windows, arch: x64, os-runner: windows-2022 }
+          - { os: windows, arch: arm64, os-runner: windows-11-arm }
+    defaults:
+      run:
+        shell: bash
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MARIADB_EXTENSIONS_FROM: releases
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Native modules (keytar, native-keymap, node-pty) are compiled for Electron.
+      - name: Install Linux build dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qqy --no-install-recommends \
+            build-essential python3 pkg-config libx11-dev libxkbfile-dev libsecret-1-dev
+
+      # add-mariadb-extension.sh and add-mariadb-shell-agent-extension.sh unpack a .vsix with unzip.
+      - name: Install unzip (Windows)
+        if: matrix.os == 'windows'
+        run: command -v unzip || choco install -y --no-progress unzip
+
+      # The root app is not built here: its packages give theia download:plugins and the license
+      # texts for THIRD-PARTY-NOTICES.txt, so their install scripts (native modules) are skipped.
+      - name: Install the root packages
+        run: npm ci --ignore-scripts
+
+      - name: Cache release downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache/releases
+          key: releases-${{ matrix.os }}-${{ matrix.arch }}-${{ hashFiles('scripts/fetch-bundled-tools.mjs', 'scripts/fetch-extensions.mjs') }}
+
+      - name: Build the desktop app
+        run: scripts/build-standalone.sh --publish never
+
+      - name: List the packages
+        run: ls -la electron/dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mariadb-shell-workbench-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            electron/dist/*.dmg
+            electron/dist/*.zip
+            electron/dist/*.AppImage
+            electron/dist/*.tar.gz
+            electron/dist/*.exe
+          if-no-files-found: error
+          compression-level: 0

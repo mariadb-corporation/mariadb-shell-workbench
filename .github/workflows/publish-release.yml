@@ -1,0 +1,123 @@
+name: Publish Release
+
+# Turns a successful Workbench-Release run (release.yml) into a GitHub release: the packages of
+# all six platforms plus SHA256SUMS, tagged on the commit that run built. Started by hand, as
+# MariaDB Shell's publish-release.yml is, so that a build can be tried before it is published.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Build run to publish (blank = latest successful Workbench-Release run on release/candidate)"
+        type: string
+        required: false
+      tag:
+        description: "Release tag (blank = v<version>, the version from package.json at that run's commit)"
+        type: string
+        required: false
+      prerelease:
+        description: "Mark as prerelease (the app is not signed yet)"
+        type: boolean
+        default: true
+      dry_run:
+        description: "Assemble and check everything, but create no release"
+        type: boolean
+        default: false
+
+run-name: >-
+  ${{ inputs.dry_run && 'Dry run' || 'Publish' }}
+  ${{ inputs.tag || '(version from build)' }}
+  from run ${{ inputs.run_id || '(latest)' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create or update the release
+      actions: read     # read the build run's artifacts
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      # The version and the tag's commit come from the run, not from the default branch: publishing
+      # an older run must not label it with a newer version.
+      - name: Resolve the build run
+        id: run
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh run list -R "$REPO" --workflow release.yml --branch release/candidate \
+              --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$RUN_ID" ] || { echo "No successful Workbench-Release run on release/candidate." >&2; exit 1; }
+          fi
+          # A run that did not succeed lacks some platforms.
+          CONCLUSION=$(gh run view "$RUN_ID" -R "$REPO" --json conclusion --jq .conclusion)
+          [ "$CONCLUSION" = success ] || { echo "Run $RUN_ID concluded '$CONCLUSION'; refusing to publish." >&2; exit 1; }
+          SHA=$(gh run view "$RUN_ID" -R "$REPO" --json headSha --jq .headSha)
+          VERSION=$(gh api "repos/$REPO/contents/package.json?ref=$SHA" --jq .content | base64 -d | jq -r .version)
+          echo "Run $RUN_ID, commit $SHA, version $VERSION"
+          { echo "run_id=$RUN_ID"; echo "sha=$SHA"; echo "version=$VERSION"; } >> "$GITHUB_OUTPUT"
+
+      - name: Download the packages
+        env:
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" -R "$REPO" --pattern 'mariadb-shell-workbench-*' --dir artifacts
+          # gh run download makes one folder per artifact; the release takes the files flat.
+          mkdir dist
+          find artifacts -type f -exec mv {} dist/ \;
+          # One artifact per platform; a missing one means the run is not the one expected.
+          for platform in mac-arm64 mac-x64 linux-x64 linux-arm64 win-x64 win-arm64; do
+            ls dist | grep -q -- "-$platform\." || { echo "No package for $platform in run $RUN_ID." >&2; exit 1; }
+          done
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -la dist
+
+      - name: Create or update the release
+        env:
+          SHA: ${{ steps.run.outputs.sha }}
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+          VERSION: ${{ steps.run.outputs.version }}
+          TAG_INPUT: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          TAG=${TAG_INPUT:-v$VERSION}
+          NOTES="MariaDB Shell Workbench $VERSION, the desktop app with MariaDB Shell, the MariaDB REST
+          daemon and the MariaDB extensions bundled.
+
+          | Platform | Package |
+          |---|---|
+          | macOS, Apple silicon | \`mariadb-shell-workbench-$VERSION-mac-arm64.dmg\` (or \`.zip\`) |
+          | macOS, Intel | \`mariadb-shell-workbench-$VERSION-mac-x64.dmg\` (or \`.zip\`) |
+          | Linux x64 | \`mariadb-shell-workbench-$VERSION-linux-x86_64.AppImage\` (or \`-linux-x64.tar.gz\`) |
+          | Linux arm64 | \`mariadb-shell-workbench-$VERSION-linux-arm64.AppImage\` (or \`.tar.gz\`) |
+          | Windows x64 | \`mariadb-shell-workbench-$VERSION-win-x64.exe\` |
+          | Windows arm64 | \`mariadb-shell-workbench-$VERSION-win-arm64.exe\` |
+
+          The app is not signed. On macOS, open it with right-click → Open the first time, or run
+          \`xattr -dr com.apple.quarantine \"MariaDB Shell Workbench.app\"\`; on Windows, choose
+          \"More info\" → \"Run anyway\" in SmartScreen.
+
+          Built by run https://github.com/$REPO/actions/runs/$RUN_ID from $SHA."
+
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then EXISTS=yes; else EXISTS=no; fi
+          if [ "$DRY_RUN" = true ]; then
+            echo "DRY RUN: nothing is created or tagged."
+            [ "$EXISTS" = yes ] && echo "Would update release $TAG" || echo "Would create release $TAG on $SHA"
+            echo "prerelease=$PRERELEASE"
+            printf 'Notes:\n%s\n' "$NOTES"
+            exit 0
+          fi
+          if [ "$EXISTS" = yes ]; then
+            gh release upload "$TAG" dist/* -R "$REPO" --clobber
+            gh release edit "$TAG" -R "$REPO" --notes "$NOTES" --prerelease="$PRERELEASE"
+          else
+            gh release create "$TAG" dist/* -R "$REPO" --target "$SHA" \
+              --title "MariaDB Shell Workbench $VERSION" --notes "$NOTES" --prerelease="$PRERELEASE"
+          fi
+          echo "Published: https://github.com/$REPO/releases/tag/$TAG"

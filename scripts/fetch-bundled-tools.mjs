@@ -71,13 +71,14 @@ async function fetchTool(tool) {
     }
     const archive = await releaseAsset(tool.repo, tool.tag, name, hash);
 
-    // Unpacked next to the target, then moved into place. The archive path is passed relative to
-    // tar's working directory: GNU tar (Git Bash on Windows) reads "C:\..." as a remote host.
-    // tar is bsdtar on macOS and Windows and unpacks the Windows .zip as well.
+    // Unpacked next to the target, then moved into place. tar is bsdtar on macOS and Windows and
+    // unpacks the Windows .zip as well; on Windows it is named in full, since Git Bash puts its GNU
+    // tar first on the PATH, which reads neither a .zip nor "C:\..." (a remote host to it).
     mkdirSync(bundle, { recursive: true });
     const tmp = mkdtempSync(join(bundle, `.${tool.name}-`));
     try {
-        const result = spawnSync('tar', ['-xf', relative(tmp, archive)], { cwd: tmp, stdio: 'inherit' });
+        const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+        const result = spawnSync(tar, ['-xf', relative(tmp, archive)], { cwd: tmp, stdio: 'inherit' });
         if (result.status !== 0) {
             throw new Error(`tar could not unpack ${name}`);
         }
