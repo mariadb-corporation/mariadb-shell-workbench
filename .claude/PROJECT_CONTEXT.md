@@ -32,6 +32,21 @@ it exists; a fact that names a particular host, address, account or machine goes
   installer into `~/.local/share/mariadb-shell/<version>`; it needs a release with a build for the
   server's platform (`gh release list -R mariadb-corporation/mariadb-shell`). `setup-base.sh` installs
   a pinned release for all users.
+- **The desktop app bundles MariaDB Shell and the REST daemon:** `scripts/fetch-bundled-tools.mjs`
+  unpacks pinned releases (`MARIADB_SHELL_TAG`, `MARIADB_RESTD_TAG`) into `electron/bundle/<tool>`,
+  which electron-builder copies to `app/bundle`. Only the packaged app (`app.isPackaged`) puts their
+  `bin` folders first on the PATH (`electron/scripts/electron-main.js`); a development start keeps
+  the developer's own builds. Theia's `fix-path` replaces `PATH` with the login shell's before it
+  forks the backend, so `process.env` is wrapped in a `Proxy` that re-prepends the bundle folders
+  on every PATH write. `MARIADB_SHELL_WORKBENCH_BUNDLED_TOOLS=0` turns it off. Nothing is installed
+  into the user's home. The REST daemon has no Windows arm64 build; that package is built without it.
+- **Release builds as MariaDB Shell's:** a push to `release/candidate` builds six platforms
+  (`.github/workflows/release.yml`); Publish Release (`publish-release.yml`, by hand) turns a
+  successful run into a GitHub pre-release with `SHA256SUMS`. CI takes both extensions from their
+  GitHub releases (`MARIADB_EXTENSIONS_FROM=releases`, tags pinned in `scripts/fetch-extensions.mjs`);
+  every pin is exact, and `/release` (`.claude/commands/release.md`) checks them against the
+  published releases and the extension's `MINIMUM_SHELL_VERSION` / `MINIMUM_RESTD_VERSION`. Every
+  release is a pre-release while the app is unsigned. `install.sh` installs a release on macOS.
 - **One webview origin:** `THEIA_WEBVIEW_EXTERNAL_ENDPOINT=webview.{{hostname}}` instead of Theia's
   default `{{uuid}}.webview.{{hostname}}`, to avoid a wildcard DNS name and certificate. All webviews
   share an origin; acceptable with only the MariaDB and built-in extensions. Theia's warning about it is
@@ -183,12 +198,17 @@ it exists; a fact that names a particular host, address, account or machine goes
 - MariaDB Shell Agent: secondary side bar entry, onboarding and provider picker work; in a local Theia
   the workspace loads and chat works through the daemon bridge with no direct browser request to the
   daemon.
-- REST daemons behind nginx on a REST host of their own work end to end in Firefox. The REST tools'
-  TLS proxy mode is not in a MariaDB Shell release yet (next steps).
+- REST daemons behind nginx on a REST host of their own work end to end in Firefox; the REST tools'
+  TLS proxy mode is in MariaDB Shell from 26.11.
 - `deploy/Raspberry-Pi-OS/` has never been run end to end on a fresh image.
-- Desktop app builds and starts on macOS arm64 (`.dmg`/`.zip`, all 16 bundled extensions deploy);
-  the MariaDB views in it have not been exercised yet. Linux and Windows targets are configured but
-  never built (electron-builder builds for the platform it runs on).
+- Desktop app: built in CI for macOS arm64/x64, Linux x64/arm64 and Windows x64/arm64 and published
+  as GitHub pre-releases (`gh release list`). A local macOS arm64 build starts with the bundled
+  shell and daemon first on the backend's PATH. The Linux and Windows packages have never been
+  installed, and the app installed by `install.sh` has not been started by hand yet.
+- Open: started from a Claude Code session, the desktop app (local build and release alike) quit at
+  once with Electron's `codesign_util.cc ... task_name_for_pid: (os/kern) failure (5)` and no
+  window, also with a fresh `--user-data-dir`, although the same local build had started from such a
+  session before. Whether it starts from Finder or a terminal is not checked yet.
 - Open: switching the OS between light and dark while the IDE is open takes effect on the next reload.
 - Open: Overview and MariaDB Shell Agent once stayed empty in a real Firefox: the backend answered 404
   for their `theia-resource/...` requests, so Firefox's service worker for `webview.<host>` did not
@@ -240,7 +260,20 @@ it exists; a fact that names a particular host, address, account or machine goes
   `images/mariadb-shell-workbench-icon.svg`, rendered at build time by `electron/scripts/render-icons.mjs`
   (macOS variant with Apple's 824/1024 margin).
   `theia rebuild:electron` keeps the browser-ABI native modules in `electron/.browser_modules/`
-  (ignored).
+  (ignored). `electron/package.json` sets `publish: null`, `artifactName`
+  (`mariadb-shell-workbench-<version>-<os>-<arch>.<ext>`; the x64 AppImage says `x86_64`) and the
+  `@electron/node-gyp` → node-gyp 12 override (gotchas).
+- `scripts/fetch-bundled-tools.mjs`, `scripts/fetch-extensions.mjs` (with
+  `MARIADB_EXTENSIONS_FROM=releases`), `scripts/release-download.mjs` → the pinned release downloads
+  of the desktop build, checked against each release's `SHA256SUMS`, cached in `.cache/releases/`
+  (ignored), retried on dropped connections. `fetch-extensions.mjs` replaces `plugins/mariadb.*`:
+  never run it in a development checkout whose extensions are local builds.
+- `.github/workflows/release.yml` (Workbench-Release), `.github/workflows/publish-release.yml` and
+  `.claude/commands/release.md` (`/release`) → the release process (Architecture).
+- `install.sh` → macOS installer for a release (`MARIADB_SHELL_WORKBENCH_TAG` or `--pre-release`):
+  the `.zip` for the CPU, checked against `SHA256SUMS`, swapped into `/Applications` (or
+  `~/Applications`), `xattr -cr` so Gatekeeper accepts the unsigned app. The release notes carry its
+  `curl … | bash` command.
 - `LICENSE` (GPLv2; the MariaDB Shell repositories' file, kept identical to theirs) and
   `THIRD-PARTY-NOTICES.txt`, generated by `scripts/generate-notices.mjs` (`npm run notices`, also run by
   `build:standalone`) from the production entries of both lock files, the extensions in `plugins/`
@@ -263,8 +296,9 @@ it exists; a fact that names a particular host, address, account or machine goes
 2. Drop the plugin-ext patch once Theia fixes the welcome-widget lookup (check on each Theia upgrade).
 3. MariaDB Shell Agent: bridge the Web Shell's WebSockets if the terminal or live-browser features are
    needed (`mariadb-shell-agent` work).
-4. Once a MariaDB Shell release carries the REST tools' proxy mode, install it with `setup-base.sh`
-   (pinned `MARIADB_SHELL_TAG`).
+4. Raise `setup-base.sh`'s default `MARIADB_SHELL_TAG` to a 26.11 release (it carries the REST tools'
+   proxy mode, and the MariaDB Shell extension's `MINIMUM_SHELL_VERSION` is above the current
+   default, so users would get the extension's own copy in their homes instead).
 5. Sandboxes and REST daemons as systemd services of their own on the multi-user server (one per
    user and deployment, `Restart=on-failure`, started at boot), so web apps served from them
    survive reboots and crashes; today the spawner only moves them out of the IDE's cgroup. Needs
@@ -276,9 +310,11 @@ it exists; a fact that names a particular host, address, account or machine goes
    Keycloak's theme files in nginx so theme changes reach browsers. Capacity: about 1.3 GiB per
    working user, so a 4 GB server holds about two (closed tabs keep their IDE for the 90-minute
    idle time); size the server for the expected users.
-7. Desktop app: try the MariaDB views and MariaDB Shell Agent in it; build on Linux (AppImage,
-   `.tar.gz`) and Windows; sign and notarize for macOS (needs an Apple Developer ID); consider asar
-   with the native modules and `plugins/` unpacked (electron-builder warns that it is off).
+7. Desktop app: start the app `install.sh` installs (the Claude Code launch problem in Current
+   state); install and start the Linux and Windows packages; try the MariaDB views and MariaDB Shell
+   Agent in it; an installer for Linux and Windows next to `install.sh`; sign and notarize for macOS
+   (needs an Apple Developer ID) and sign for Windows, after which releases need not be
+   pre-releases; consider asar with the native modules and `plugins/` unpacked.
 8. Run `deploy/Raspberry-Pi-OS/` once on a fresh Raspberry Pi OS image.
 
 ## Gotchas / things not to repeat
@@ -351,5 +387,23 @@ it exists; a fact that names a particular host, address, account or machine goes
   `mac.identity: "-"` (ad-hoc) when the keychain has no valid identity; `null` skips signing. Electron
   42 has no install script and downloads its binary on first use. After an icon change macOS may
   show the old icon from its cache (`killall Dock`).
+- **Desktop builds on CI runners:** electron-builder with `--publish never` still reads the publish
+  config and crashes on its `null` channel unless `build.publish` is `null`. Its own node-gyp fork
+  (`@electron/node-gyp` 10.2.0-electron.1), which runs dependency install scripts such as
+  `drivelist`'s, does not know Visual Studio 2026 (the only one on `windows-11-arm`) and fails in
+  `llvm-lib` with Node 24's ClangCL on `windows-2022`: overridden with node-gyp 12. On Windows,
+  Git Bash's GNU tar reads neither `.zip` nor `C:\` paths; the fetch script calls
+  `%SystemRoot%\System32\tar.exe` (bsdtar). Ubuntu 22.04 runners keep the Linux packages on glibc
+  2.35, near the bundled shell's 2.34.
+- **Release tags can only be created by admins** (ruleset "Create Release" on `refs/tags/v*`:
+  creation, update, deletion): Publish Release's token gets `Cannot create ref due to creations
+  being restricted`, so the annotated tag is pushed from an admin account first. Never `git push
+  --tags` (local `archive/*` tags must stay private).
+- **The MCP SDK's stdio transport passes only a few default variables to the server it starts:**
+  `MARIADB_SHELL_*` set in a login shell (`MARIADB_SHELL_PLUGINS_PATH` for development plugins) did
+  not reach `mariadb-shell` until the MariaDB Shell extension passed them on itself; "There is no
+  object registered under name 'mcp'" means a shell without its plugins.
+- **GUI apps started from a Claude Code session** need the command sandbox off, or they exit
+  silently.
 - **License texts for `licenses/npm/`:** take them from the release tag or the shipped package's
   README; a repository's default branch can carry a newer license (Font Awesome 6/7 vs. 4.7).
