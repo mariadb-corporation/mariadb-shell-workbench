@@ -45,6 +45,7 @@ jobs:
         id: run
         env:
           RUN_ID: ${{ inputs.run_id }}
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           if [ -z "$RUN_ID" ]; then
@@ -58,7 +59,15 @@ jobs:
           SHA=$(gh run view "$RUN_ID" -R "$REPO" --json headSha --jq .headSha)
           VERSION=$(gh api "repos/$REPO/contents/package.json?ref=$SHA" --jq .content | base64 -d | jq -r .version)
           echo "Run $RUN_ID, commit $SHA, version $VERSION"
-          { echo "run_id=$RUN_ID"; echo "sha=$SHA"; echo "version=$VERSION"; } >> "$GITHUB_OUTPUT"
+          # The "Create Release" ruleset lets only admins create v* tags, so this workflow cannot:
+          # the tag is pushed first, from an admin's account (/release does that), on the commit
+          # the run built. Checked here, so that a dry run catches a missing or misplaced tag too.
+          TAG=${TAG_INPUT:-v$VERSION}
+          TAG_SHA=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha 2>/dev/null) ||
+            { echo "Tag $TAG does not exist. Push it first, on $SHA: git tag -a $TAG $SHA -m '...' && git push origin refs/tags/$TAG" >&2; exit 1; }
+          [ "$TAG_SHA" = "$SHA" ] || { echo "Tag $TAG is on $TAG_SHA, but run $RUN_ID built $SHA." >&2; exit 1; }
+          echo "Tag $TAG is on $SHA"
+          { echo "run_id=$RUN_ID"; echo "sha=$SHA"; echo "version=$VERSION"; echo "tag=$TAG"; } >> "$GITHUB_OUTPUT"
 
       - name: Download the packages
         env:
@@ -81,14 +90,31 @@ jobs:
           SHA: ${{ steps.run.outputs.sha }}
           RUN_ID: ${{ steps.run.outputs.run_id }}
           VERSION: ${{ steps.run.outputs.version }}
-          TAG_INPUT: ${{ inputs.tag }}
+          TAG: ${{ steps.run.outputs.tag }}
           PRERELEASE: ${{ inputs.prerelease }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
-          TAG=${TAG_INPUT:-v$VERSION}
           NOTES="MariaDB Shell Workbench $VERSION, the desktop app with MariaDB Shell, the MariaDB REST
           daemon and the MariaDB extensions bundled.
+
+          ## Install
+
+          ### macOS
+
+          \`\`\`sh
+          curl -fsSL https://github.com/$REPO/raw/main/install.sh | MARIADB_SHELL_WORKBENCH_TAG=$TAG bash
+          \`\`\`
+
+          Picks the package for your Mac (Apple silicon or Intel), verifies its checksum, installs
+          the app into \`/Applications\` (or \`~/Applications\`) and clears its quarantine flag, so
+          that macOS opens it although it is not signed yet.
+
+          ### Linux and Windows
+
+          Download the package for your platform below.
+
+          ## Packages
 
           | Platform | Package |
           |---|---|
@@ -99,16 +125,19 @@ jobs:
           | Windows x64 | \`mariadb-shell-workbench-$VERSION-win-x64.exe\` |
           | Windows arm64 | \`mariadb-shell-workbench-$VERSION-win-arm64.exe\` |
 
-          The app is not signed. On macOS, open it with right-click → Open the first time, or run
-          \`xattr -dr com.apple.quarantine \"MariaDB Shell Workbench.app\"\`; on Windows, choose
-          \"More info\" → \"Run anyway\" in SmartScreen.
+          The app is not signed. On macOS, the installer above takes care of that; after a manual
+          download, run \`xattr -cr \"/Applications/MariaDB Shell Workbench.app\"\` before the first
+          start. On Windows, choose \"More info\" → \"Run anyway\" in SmartScreen.
+
+          To check a download against SHA256SUMS: \`shasum -a 256 -c SHA256SUMS --ignore-missing\`
+          (macOS), \`sha256sum -c SHA256SUMS --ignore-missing\` (Linux).
 
           Built by run https://github.com/$REPO/actions/runs/$RUN_ID from $SHA."
 
           if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then EXISTS=yes; else EXISTS=no; fi
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN: nothing is created or tagged."
-            [ "$EXISTS" = yes ] && echo "Would update release $TAG" || echo "Would create release $TAG on $SHA"
+            [ "$EXISTS" = yes ] && echo "Would update release $TAG" || echo "Would create release $TAG on $SHA (tag in place)"
             echo "prerelease=$PRERELEASE"
             printf 'Notes:\n%s\n' "$NOTES"
             exit 0
@@ -117,7 +146,7 @@ jobs:
             gh release upload "$TAG" dist/* -R "$REPO" --clobber
             gh release edit "$TAG" -R "$REPO" --notes "$NOTES" --prerelease="$PRERELEASE"
           else
-            gh release create "$TAG" dist/* -R "$REPO" --target "$SHA" \
+            gh release create "$TAG" dist/* -R "$REPO" --verify-tag \
               --title "MariaDB Shell Workbench $VERSION" --notes "$NOTES" --prerelease="$PRERELEASE"
           fi
           echo "Published: https://github.com/$REPO/releases/tag/$TAG"
