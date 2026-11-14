@@ -3,7 +3,7 @@
   "name": "mariadb-shell-workbench-desktop",
   "productName": "MariaDB Shell Workbench",
   "author": "MariaDB Plc.",
-  "version": "26.11.0",
+  "version": "26.11.1",
   "description": "MariaDB Shell Workbench as a desktop application: the Workbench Theia app with the Electron target.",
   "license": "GPL-2.0-only",
   "main": "scripts/electron-main.js",
