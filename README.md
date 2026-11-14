@@ -247,7 +247,23 @@ extensions are the ones pinned in the fetch scripts.
 successful run (the latest on `release/candidate` unless `run_id` is given) into a GitHub release
 tagged `v<version>` (the root `package.json`'s version at that run's commit) on the commit the run
 built, with the packages and a `SHA256SUMS`; prerelease by default, as the app is unsigned.
-`dry_run` checks everything and prints the notes without creating the release.
+`dry_run` checks everything and prints the notes without creating the release. The tag must exist
+first, on the commit the run built: the repository's "Create Release" ruleset lets only admins
+create `v*` tags, so an admin pushes it (`/release` does) and the workflow only checks it.
+`/release` (`.claude/commands/release.md`) runs the whole process, from the version check to the
+published pre-release.
+
+`install.sh` installs the app on macOS from a release, as MariaDB Shell's installer does for the
+shell; the release notes carry the command:
+
+```sh
+curl -fsSL https://github.com/mariadb-corporation/mariadb-shell-workbench/raw/main/install.sh | MARIADB_SHELL_WORKBENCH_TAG=v26.11.0 bash
+```
+
+It picks the package for the Mac's CPU, verifies it against the release's `SHA256SUMS`, installs it
+into `/Applications` (or `~/Applications`) and clears its extended attributes (`xattr -cr`), so that
+Gatekeeper does not refuse the unsigned app. `--pre-release` takes the newest release instead of a
+pinned tag; `MARIADB_SHELL_WORKBENCH_APPDIR` installs elsewhere.
 
 ## Behind a proxy, inside a console
 

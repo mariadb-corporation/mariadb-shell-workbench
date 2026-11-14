@@ -279,8 +279,26 @@ starts again at step 3 with the same version.
 
 ## 7. Publish the pre-release
 
-First a dry run, which checks that all six platforms are in the run and
-prints the release notes:
+**The tag first.** The repository's "Create Release" ruleset lets only admins
+create, move or delete `v*` tags, so Publish Release cannot create one: its
+token is refused (`Cannot create ref due to creations being restricted`). The
+tag is created here, from the user's account, on the commit the build ran on
+(the merge commit), as an annotated tag:
+
+```bash
+git tag -a v<version> <merge-sha> -m "MariaDB Shell Workbench <version>" \
+  -m "<one paragraph: what is new, and the bundled versions: MariaDB Shell, MariaDB REST Daemon, the MariaDB Shell extension and MariaDB Shell Agent>. Built by run <run-id>."
+git push origin refs/tags/v<version>
+git ls-remote --tags origin 'v<version>*'      # the tag object, and ^{} the merge commit
+```
+
+Push only this tag: never `git push --tags`, which would publish the local
+`archive/*` tags. If the push is refused, the `gh` user is not an admin of
+the repository: stop and report it. A tag pushed by mistake can only be
+deleted by an admin, too.
+
+Then a dry run, which checks that the tag is on the build's commit, that all
+six platforms are in the run, and prints the release notes:
 
 ```bash
 gh workflow run publish-release.yml -f run_id=<run-id> -f tag=v<version> -f prerelease=true -f dry_run=true
@@ -288,8 +306,10 @@ gh workflow run publish-release.yml -f run_id=<run-id> -f tag=v<version> -f prer
 
 Find its run (`gh run list --workflow publish-release.yml --limit 1 --json databaseId,url`),
 wait for it with `gh run watch <id> --exit-status`, and read its log
-(`gh run view <id> --log | grep -A40 'DRY RUN'`). It must say
-`Would create release v<version> on <merge-sha>` and `prerelease=true`. If it
+(`gh run view <id> --log | grep -A60 'DRY RUN'`). It must say
+`Would create release v<version> on <merge-sha> (tag in place)` and
+`prerelease=true`, and the notes must carry the macOS install command with
+`MARIADB_SHELL_WORKBENCH_TAG=v<version>`. If it
 says it would update an existing release, stop: step 1 found no such release,
 so someone else published one in the meantime.
 
@@ -317,6 +337,10 @@ gh release view v<version> --json isPrerelease,isDraft,tagName,targetCommitish,a
   `linux-x64.tar.gz`, `linux-arm64.AppImage`, `linux-arm64.tar.gz`,
   `win-x64.exe` and `win-arm64.exe`.
 - `gh release list --limit 5` must not show `v<version>` as `Latest`.
+- The macOS installer must find and verify the new release; this downloads
+  the package (about 400 MB) into the scratchpad, not into `/Applications`:
+  `MARIADB_SHELL_WORKBENCH_TAG=v<version> MARIADB_SHELL_WORKBENCH_APPDIR=<scratch>/apps ./install.sh`
+  must end with `Installed`. Remove `<scratch>/apps` afterwards.
 
 Anything else → report it and stop.
 
