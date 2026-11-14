@@ -13,14 +13,14 @@ import { releaseAsset, root } from './release-download.mjs';
 const extensions = [
     {
         repo: 'mariadb-corporation/vscode-extension',
-        tag: process.env.MARIADB_EXTENSION_TAG || 'v26.10.1',
+        tag: process.env.MARIADB_EXTENSION_TAG || 'v26.11.1',
         asset: version => `mariadb-shell-${version}.vsix`,
         unpack: 'add-mariadb-extension.sh',
     },
     {
         // The universal build has no node-pty and runs on every platform.
         repo: 'mariadb-corporation/mariadb-shell-agent',
-        tag: process.env.MARIADB_SHELL_AGENT_TAG || 'v26.11.0',
+        tag: process.env.MARIADB_SHELL_AGENT_TAG || 'v26.11.1',
         asset: version => `mariadb-shell-agent-${version}-universal.vsix`,
         unpack: 'add-mariadb-shell-agent-extension.sh',
     },

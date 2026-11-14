@@ -69,9 +69,11 @@
   "build": {
     "appId": "com.mariadb.shell-workbench",
     "productName": "MariaDB Shell Workbench",
+    "artifactName": "mariadb-shell-workbench-${version}-${os}-${arch}.${ext}",
     "copyright": "Copyright (c) 2026, MariaDB Plc.",
     "asar": false,
     "npmRebuild": false,
+    "publish": null,
     "directories": {
       "output": "dist",
       "buildResources": "resources"
@@ -151,5 +153,8 @@
     "electron-winstaller@5.4.0": true,
     "native-keymap@2.5.0": true,
     "@theia/ffmpeg@1.76.0": true
+  },
+  "overrides": {
+    "@electron/node-gyp": "npm:node-gyp@12.4.0"
   }
 }

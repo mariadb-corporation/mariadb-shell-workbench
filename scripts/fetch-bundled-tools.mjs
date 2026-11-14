@@ -16,7 +16,7 @@ const bundle = join(root, 'electron', 'bundle');
 const exe = name => process.platform === 'win32' ? `${name}.exe` : name;
 
 // The release archive names differ between the two repositories:
-//   mariadb-shell-26.11.1-macos26-arm-64bit.tar.gz, ...-linux-glibc2.34-x86-64bit.tar.gz
+//   mariadb-shell-26.11.2-macos26-arm-64bit.tar.gz, ...-linux-glibc2.34-x86-64bit.tar.gz
 //   mariadb-restd-26.11.0-macos-arm64.tar.gz, ...-linux-aarch64.tar.gz, ...-windows-x64.zip
 // `variant` matches the OS or glibc version some names carry; of several matches the lowest wins
 // (the build that runs on the most systems).
@@ -24,7 +24,7 @@ const tools = [
     {
         name: 'mariadb-shell',
         repo: 'mariadb-corporation/mariadb-shell',
-        tag: process.env.MARIADB_SHELL_TAG || 'v26.11.1',
+        tag: process.env.MARIADB_SHELL_TAG || 'v26.11.2',
         os: { darwin: 'macos', linux: 'linux', win32: 'windows' },
         arch: { arm64: 'arm-64bit', x64: 'x86-64bit' },
         pattern: (version, os, arch) => new RegExp(`^mariadb-shell-${version}-${os}(?<variant>\\d*|-glibc[\\d.]+)-${arch}\\.tar\\.gz$`),
@@ -71,13 +71,14 @@ async function fetchTool(tool) {
     }
     const archive = await releaseAsset(tool.repo, tool.tag, name, hash);
 
-    // Unpacked next to the target, then moved into place. The archive path is passed relative to
-    // tar's working directory: GNU tar (Git Bash on Windows) reads "C:\..." as a remote host.
-    // tar is bsdtar on macOS and Windows and unpacks the Windows .zip as well.
+    // Unpacked next to the target, then moved into place. tar is bsdtar on macOS and Windows and
+    // unpacks the Windows .zip as well; on Windows it is named in full, since Git Bash puts its GNU
+    // tar first on the PATH, which reads neither a .zip nor "C:\..." (a remote host to it).
     mkdirSync(bundle, { recursive: true });
     const tmp = mkdtempSync(join(bundle, `.${tool.name}-`));
     try {
-        const result = spawnSync('tar', ['-xf', relative(tmp, archive)], { cwd: tmp, stdio: 'inherit' });
+        const tar = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+        const result = spawnSync(tar, ['-xf', relative(tmp, archive)], { cwd: tmp, stdio: 'inherit' });
         if (result.status !== 0) {
             throw new Error(`tar could not unpack ${name}`);
         }

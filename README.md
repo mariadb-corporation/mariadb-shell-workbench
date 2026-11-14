@@ -226,6 +226,28 @@ build runs on (electron-builder); the build copies the extensions from `plugins/
   `icon-mac.png` with the art at 824 of 1024 px (Apple's icon grid) for macOS.
 - `npm --prefix electron start` starts what was built last, without building; from a terminal inside
   VS Code it may need `ELECTRON_RUN_AS_NODE` unset (`start:standalone` does that).
+- `electron/package.json` overrides `@electron/node-gyp` (electron-builder's old node-gyp fork, whose
+  `node-gyp` would otherwise be the one dependency install scripts run) with node-gyp 12.4.0: the fork
+  knows no Visual Studio 2026 and fails linking Node 24's ClangCL builds on Windows. electron-builder's
+  own rebuild, the fork's only user, is off (`npmRebuild: false`); `theia rebuild:electron` already
+  uses node-gyp 12.
+- `"publish": null`: no update metadata (`latest.yml`); without it electron-builder fails on CI.
+
+### Release builds
+
+Like MariaDB Shell's: a push to `release/candidate` runs `.github/workflows/release.yml`
+(Workbench-Release), which builds the desktop app on six runners (macOS arm64 and x64, Linux x64
+and arm64 on Ubuntu 22.04, Windows x64 and arm64) with `MARIADB_EXTENSIONS_FROM=releases` and keeps
+each platform's packages as an artifact of the run: `mariadb-shell-workbench-<version>-<os>-<arch>`
+`.dmg`/`.zip` (macOS), `.AppImage`/`.tar.gz` (Linux; the x64 AppImage says `x86_64`), `.exe`
+(Windows). A run takes about 30 minutes; the release tags of the shell, the REST daemon and both
+extensions are the ones pinned in the fetch scripts.
+
+`.github/workflows/publish-release.yml` (Publish Release, started by hand under Actions) turns a
+successful run (the latest on `release/candidate` unless `run_id` is given) into a GitHub release
+tagged `v<version>` (the root `package.json`'s version at that run's commit) on the commit the run
+built, with the packages and a `SHA256SUMS`; prerelease by default, as the app is unsigned.
+`dry_run` checks everything and prints the notes without creating the release.
 
 ## Behind a proxy, inside a console
 
