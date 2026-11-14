@@ -16,7 +16,7 @@ const bundle = join(root, 'electron', 'bundle');
 const exe = name => process.platform === 'win32' ? `${name}.exe` : name;
 
 // The release archive names differ between the two repositories:
-//   mariadb-shell-26.11.1-macos26-arm-64bit.tar.gz, ...-linux-glibc2.34-x86-64bit.tar.gz
+//   mariadb-shell-26.11.2-macos26-arm-64bit.tar.gz, ...-linux-glibc2.34-x86-64bit.tar.gz
 //   mariadb-restd-26.11.0-macos-arm64.tar.gz, ...-linux-aarch64.tar.gz, ...-windows-x64.zip
 // `variant` matches the OS or glibc version some names carry; of several matches the lowest wins
 // (the build that runs on the most systems).
@@ -24,7 +24,7 @@ const tools = [
     {
         name: 'mariadb-shell',
         repo: 'mariadb-corporation/mariadb-shell',
-        tag: process.env.MARIADB_SHELL_TAG || 'v26.11.1',
+        tag: process.env.MARIADB_SHELL_TAG || 'v26.11.2',
         os: { darwin: 'macos', linux: 'linux', win32: 'windows' },
         arch: { arm64: 'arm-64bit', x64: 'x86-64bit' },
         pattern: (version, os, arch) => new RegExp(`^mariadb-shell-${version}-${os}(?<variant>\\d*|-glibc[\\d.]+)-${arch}\\.tar\\.gz$`),
