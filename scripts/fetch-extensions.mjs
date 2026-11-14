@@ -13,7 +13,7 @@ import { releaseAsset, root } from './release-download.mjs';
 const extensions = [
     {
         repo: 'mariadb-corporation/vscode-extension',
-        tag: process.env.MARIADB_EXTENSION_TAG || 'v26.11.1',
+        tag: process.env.MARIADB_EXTENSION_TAG || 'v26.11.2',
         asset: version => `mariadb-shell-${version}.vsix`,
         unpack: 'add-mariadb-extension.sh',
     },

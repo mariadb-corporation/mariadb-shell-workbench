@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "mariadb-shell-workbench",
-  "version": "26.11.0",
+  "version": "26.11.1",
   "description": "Browser IDE built on Eclipse Theia, hosting the MariaDB VS Code extension; embedded in MariaDB Cloud as \"App Platform\".",
   "license": "GPL-2.0-only",
   "engines": {
